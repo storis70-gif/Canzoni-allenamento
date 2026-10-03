@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Canzoni allenamento — DJ Mixer</title>
+<style>
+:root{--bg:#080a0e;--panel:#11151c;--panel2:#171c24;--line:#2b3440;--text:#f4f7fb;--muted:#8e99a8;--accent:#00e5ff;--accent2:#ff2bd6}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(circle at top,#18202c 0,#080a0e 48%);color:var(--text);font-family:Arial,sans-serif;min-height:100vh}
+header{position:sticky;top:0;z-index:20;background:rgba(8,10,14,.96);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);padding:10px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+h1{font-size:18px;margin:0;font-weight:800;letter-spacing:.5px}
+.status{font-size:11px;color:var(--accent);font-weight:bold}
+.controls{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
+.ctrl{background:#1a212b;border:1px solid #303b49;color:#fff;border-radius:7px;padding:8px 10px;font-weight:700;font-size:12px}
+.ctrl:active{transform:scale(.97)}
+#grid{display:grid;grid-template-columns:repeat(8,minmax(125px,1fr));gap:7px;padding:9px;overflow-x:auto}
+.channel{background:linear-gradient(180deg,#151a22,#0e1218);border:1px solid var(--line);border-radius:10px;padding:7px;min-width:125px;box-shadow:0 5px 20px #0006}
+.channel h2{font-size:12px;text-transform:uppercase;text-align:center;margin:1px 0 7px;min-height:29px;display:flex;align-items:center;justify-content:center;letter-spacing:.6px}
+.led{height:3px;background:#252d38;border-radius:5px;margin-bottom:7px}
+.led.on{background:var(--accent);box-shadow:0 0 9px var(--accent)}
+.pad{width:100%;height:44px;margin:3px 0;border:1px solid #303946;border-radius:7px;background:linear-gradient(180deg,#242c37,#171d25);color:#eaf0f7;font-size:12px;font-weight:800;cursor:pointer;box-shadow:inset 0 1px #ffffff10,0 2px 4px #0008}
+.pad:hover{border-color:#5c6b7c}
+.pad.active{background:linear-gradient(180deg,#006d7a,#003e48);border-color:var(--accent);box-shadow:0 0 12px #00e5ff66,inset 0 1px #fff3}
+.pad.assigned{border-left:3px solid var(--accent2)}
+.mixer{margin-top:7px;border-top:1px solid #252d38;padding-top:7px}
+.mixer label{display:flex;justify-content:space-between;color:var(--muted);font-size:10px;margin-bottom:4px}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.name{width:100%;margin:3px 0;padding:6px;border-radius:6px;border:1px solid #3a4654;background:#0a0d12;color:#fff;text-align:center;font-size:11px}
+.hidden{display:none}
+.note{text-align:center;color:var(--muted);font-size:10px;padding:0 10px 10px}
+@media(max-width:900px){#grid{grid-template-columns:repeat(4,minmax(125px,1fr));overflow-x:auto}}
+@media(max-width:600px){#grid{grid-template-columns:repeat(2,minmax(145px,1fr));padding:6px;gap:6px}.channel{min-width:0}.pad{height:46px}h1{font-size:16px}}
+</style>
+</head>
+<body>
+<header>
+  <div class="top">
+    <h1>🎛️ CANZONI ALLENAMENTO</h1>
+    <div class="status" id="status">PRONTO • 100%</div>
+  </div>
+  <div class="controls">
+    <button class="ctrl" onclick="toggleRename()">✏️ Rinomina</button>
+    <button class="ctrl" onclick="saveNames()">💾 Salva</button>
+    <button class="ctrl" onclick="resetNames()">↩️ Reset nomi</button>
+    <button class="ctrl" onclick="changeSpeed(-.05)">− Vel.</button>
+    <button class="ctrl" onclick="changeSpeed(.05)">+ Vel.</button>
+    <button class="ctrl" onclick="resetSpeed()">100%</button>
+  </div>
+</header>
+
+<main id="grid"></main>
+<div class="note">I brani Spotify si aprono in una nuova scheda. Il pad resta aperto. La velocità visualizzata non modifica la riproduzione Spotify.</div>
+
+<script>
+const columns=["Valzer lento","Tango","Valzer viennese","Quick step","Slowfox","Mazurka","Foxtrot","Polka"];
+const spotifyLinks={
+  1:"https://open.spotify.com/track/4GcklZLsmbmuN8Jwgzodxf?si=EyIrV12vTxSE96uKIsu4_A&utm_source=copy-link"
+};
+let speed=1,renameMode=false;
+let saved=JSON.parse(localStorage.getItem("mixerNames")||"{}");
+
+function makePad(){
+ const grid=document.getElementById("grid"); grid.innerHTML="";
+ let n=1;
+ columns.forEach(title=>{
+  const col=document.createElement("section"); col.className="channel";
+  const h=document.createElement("h2"); h.textContent=title; col.appendChild(h);
+  const led=document.createElement("div"); led.className="led"; led.id="led"+n; col.appendChild(led);
+  for(let i=0;i<10;i++,n++){
+   const b=document.createElement("button"); b.className="pad"+(spotifyLinks[n]?" assigned":"");
+   b.id="b"+n; b.textContent=saved[n]||("Tasto "+n);
+   b.onclick=()=>playSong(n);
+   col.appendChild(b);
+   const inp=document.createElement("input"); inp.className="name hidden"; inp.value=saved[n]||("Tasto "+n); inp.dataset.n=n;
+   inp.oninput=()=>b.textContent=inp.value||("Tasto "+n); col.appendChild(inp);
+  }
+  const mix=document.createElement("div"); mix.className="mixer";
+  const lab=document.createElement("label"); lab.innerHTML="<span>VOLUME</span><span>100%</span>"; mix.appendChild(lab);
+  const range=document.createElement("input"); range.type="range"; range.min=0; range.max=100; range.value=100;
+  range.oninput=()=>lab.lastChild.textContent=range.value+"%"; mix.appendChild(range);
+  col.appendChild(mix); grid.appendChild(col);
+ });
+}
+function playSong(n){
+ const b=document.getElementById("b"+n),led=document.getElementById("led"+(Math.ceil(n/10)*1));
+ document.querySelectorAll(".pad").forEach(x=>x.classList.remove("active"));
+ b.classList.add("active");
+ if(spotifyLinks[n]){
+   document.getElementById("status").textContent="▶ RIPRODUZIONE • "+Math.round(speed*100)+"%";
+   window.open(spotifyLinks[n],"_blank","noopener");
+ }else{
+   document.getElementById("status").textContent="NESSUN BRANO • TASTO "+n;
+ }
+ setTimeout(()=>b.classList.remove("active"),700);
+}
+function toggleRename(){
+ renameMode=!renameMode;
+ document.querySelectorAll(".name").forEach(x=>x.classList.toggle("hidden",!renameMode));
+}
+function saveNames(){
+ const data={};
+ document.querySelectorAll(".name").forEach(x=>data[x.dataset.n]=x.value||("Tasto "+x.dataset.n));
+ localStorage.setItem("mixerNames",JSON.stringify(data)); saved=data;
+ document.querySelectorAll(".pad").forEach(b=>b.textContent=data[b.id.slice(1)]||b.textContent);
+ document.getElementById("status").textContent="NOMI SALVATI";
+}
+function resetNames(){
+ localStorage.removeItem("mixerNames"); saved={}; makePad();
+ document.getElementById("status").textContent="NOMI RIPRISTINATI";
+}
+function changeSpeed(d){
+ speed=Math.max(.5,Math.min(1.5,speed+d)); updateSpeed();
+}
+function resetSpeed(){speed=1;updateSpeed()}
+function updateSpeed(){
+ document.getElementById("status").textContent="PRONTO • "+Math.round(speed*100)+"%";
+}
+makePad();
+</script>
+</body>
+</html>
